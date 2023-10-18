@@ -1,0 +1,67 @@
+@Library('PipelineUtils')_
+import com.XXX.Constants
+pipeline {
+    agent {
+        label "agent&&docker&&2GB-RAM"
+    }
+
+    environment {
+        CONTAINER_NAME="${CONTAINER_NAME}"
+        RESOURCE_GROUP="${RESOURCE_GROUP}"
+        NUMBER_OF_CONTAINERS="${NUMBER_OF_CONTAINERS}"
+        DOCKER_REGISTRY="${DOCKER_REGISTRY}"
+        DOCKER_USER_NAME="${DOCKER_USER_NAME}"
+        DOCKER_USER_PASSWORD="${DOCKER_USER_PASSWORD}"
+        NETWORK_PROFILE_ID="${NETWORK_PROFILE_ID}"
+        CPU_RESOURCE="${CPU_RESOURCE}"
+        MEMORY_IN_GB_RESOURCE="${MEMORY_IN_GB_RESOURCE}"
+        WORKSPACE = "./performance/jmeter-agent/"
+        DOCKER_REPOSITORY = "${DOCKER_REGISTRY}/performance/jmeter-agent"
+    }
+
+    stages {
+        stage("Deploy to Azure") {
+            steps {
+                dir (WORKSPACE){
+                    withCredentials([azureServicePrincipal('AcrServiceUser')]) {
+                        sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                    }
+                    script {
+                        try{
+                            if (VERSION.trim().equalsIgnoreCase("latest")){
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:latest"
+                            } else {
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:${VERSION}"
+                            }
+                            def SHARE_FOLDER_EXISTS = sh (script:"az storage share-rm exists --name ${AZURE_FILE_SHARE_NAME} --resource-group ${RESOURCE_GROUP} --storage-account ${AZURE_FILE_STORAGE_ACCOUNT_NAME} --query exists --output tsv", returnStdout: true).trim()
+                            echo "SHARE_FOLDER_EXISTS exists : ${SHARE_FOLDER_EXISTS}"
+                            if (SHARE_FOLDER_EXISTS=="false"){
+                                sh "az storage share-rm create --name ${AZURE_FILE_SHARE_NAME} --resource-group ${RESOURCE_GROUP} --storage-account ${AZURE_FILE_STORAGE_ACCOUNT_NAME}"
+                            }
+                            def containerList = sh(script: "az container list -g ${RESOURCE_GROUP} --query '[].name' --output tsv", returnStdout: true).trim().split('\n')
+                             for (def containerName in containerList) {
+                                if (containerName.startsWith(CONTAINER_NAME)) {
+                                    sh "az container delete -g ${RESOURCE_GROUP} --name ${containerName} --yes"
+                                }
+                             }
+                        } finally{
+                             for (int i = 1; i <= NUMBER_OF_CONTAINERS.toInteger(); i++) {
+                                sh "envsubst < jenkins/jmeter-agent-template.yaml > jenkins/jmeter-agent.yaml"
+                                def containerName = "${CONTAINER_NAME}-${i}"
+                                sh "sed -i 's|name: \\$CONTAINER_NAME|name: ${containerName}|g' jenkins/jmeter-agent.yaml"
+                                sh "az container create -g ${RESOURCE_GROUP} -f jenkins/jmeter-agent.yaml"
+                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            dir (WORKSPACE){
+                sh "rm -f jmeter-agent.yaml"
+            }
+        }
+    }
+}

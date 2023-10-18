@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.2">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="LoadTest" enabled="true">
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="XXX" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(load.threadnum,1)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(load.trampup,15)}</stringProp>
+        <boolProp name="ThreadGroup.delayedStart">false</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(load.duration,300)}</stringProp>
+        <stringProp name="ThreadGroup.delay">${__P(load.delay,0)}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="TestPlan.comments">Defaults to one virtual user with a thread start interval of 15 seconds, a duration of 10 minutes, and a start delay of 0 seconds.</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <BeanShellSampler guiclass="BeanShellSamplerGui" testclass="BeanShellSampler" testname="Data_IndustryAssetData" enabled="false">
+          <stringProp name="BeanShellSampler.query">log.info(&quot;--------Start_Data_IndustryAssetData-----------&quot;);
+
+//Get the file path of IndustryAssetData.
+String industryAssetDataFilePath = vars.get(&quot;project_path&quot;)+vars.get(&quot;industry_asset_data_path&quot;);
+log.info(industryAssetDataFilePath);
+
+//Read the data in IndustryAssetData and exist in the list collection
+List industryAssets=new ArrayList();
+try {
+	BufferedReader br = new BufferedReader(new FileReader(industryAssetDataFilePath));
+	String[] titles = br.readLine().split(&quot;,&quot;);
+	String line;
+	while((line=br.readLine())!=null){
+		Map industryAssetMap = new HashMap();
+		String[] datas = line.split(&quot;,&quot;);
+		if(datas[3].contains(&quot;Mercedes&quot;)){
+ 			for(int i=0;i&lt;titles.length;i++){		
+				industryAssetMap.put(titles[i].replace(&quot;\&quot;&quot;,&quot;&quot;),datas[i].replace(&quot;\&quot;&quot;,&quot;&quot;));
+			}
+			industryAssets.add(industryAssetMap);
+		}
+	}
+	br.close();
+} catch (Exception e) {
+	log.error(&quot;Error while reading CSV file: &quot; + e.getMessage());
+}
+
+log.info(&quot;A total of data is read from the IndustryAssetData file: &quot;+industryAssets.size());
+
+//Get a random piece of data from the data
+int num=new Random().nextInt(industryAssets.size())+1;
+Map industryAsset=industryAssets.get(num);
+log.info(num+&quot;---&gt;&quot;+industryAsset.get(&quot;subModel&quot;));
+
+//Write back data to user-defined data
+//props.put(&quot;random_makeName&quot;,industryAsset.get(&quot;makeName&quot;));
+//props.put(&quot;random_makeName&quot;,&quot;Mercedes&quot;);
+vars.put(&quot;random_makeName&quot;,&quot;Mercedes&quot;);
+//vars.put(&quot;random_makeName&quot;,industryAsset.get(&quot;subModel&quot;));
+log.info(&quot;--------End_Data_IndustryAssetData-----------&quot;);
+
+
+</stringProp>
+          <boolProp name="BeanShellSampler.resetInterpreter">false</boolProp>
+        </BeanShellSampler>
+        <hashTree/>
+        <BeanShellSampler guiclass="BeanShellSamplerGui" testclass="BeanShellSampler" testname="Data_GlobalData" enabled="false">
+          <stringProp name="BeanShellSampler.query">log.info(&quot;--------Start_Initialize global data-----------&quot;);
+
+//Get the file path of IndustryAssetData.
+String globalDataFilePath = vars.get(&quot;project_path&quot;)+vars.get(&quot;test_data&quot;);
+log.info(globalDataFilePath);
+
+//Read the data in IndustryAssetData and exist in the list collection
+List dataAssets=new ArrayList();
+try {
+	BufferedReader br = new BufferedReader(new FileReader(globalDataFilePath));
+	String[] titles = br.readLine().split(&quot;,&quot;);
+	String line;
+	while((line=br.readLine())!=null){
+		log.info(line);
+		if(line.startsWith(&quot;//&quot;)){continue;}
+		Map contentMap = new HashMap();
+		String[] datas = line.split(&quot;,&quot;);
+		for(int i=0;i&lt;titles.length;i++){		
+			contentMap.put(titles[i].replace(&quot;\&quot;&quot;,&quot;&quot;),datas[i].replace(&quot;\&quot;&quot;,&quot;&quot;));
+		}
+		dataAssets.add(contentMap);
+	}
+	br.close();
+} catch (Exception e) {
+	log.error(&quot;Error while reading CSV file: &quot; + e.getMessage());
+}
+log.info(&quot;A total of data is read from the global data file: &quot;+dataAssets.size());
+
+//Get a random piece of data from the data
+String username=&quot;OKARLSS&quot;;
+String password=&quot;OTYzcXdlMzIx&quot;;
+//String introducer_id=&quot;136&quot;;
+String makename=&quot;AMG&quot;;
+
+int num=new Random().nextInt(dataAssets.size());
+if(dataAssets.size()&gt;0){
+	Map randomData=dataAssets.get(num);
+	username=randomData.get(&quot;username&quot;);
+	password=randomData.get(&quot;password&quot;);
+//	introducer_id=randomData.get(&quot;introducer_id&quot;);
+	makename=randomData.get(&quot;makename&quot;);
+}
+
+//log.info(num+&quot;result:random_password:&quot;+username+&quot;,random_password:&quot;+password+&quot;,introducer_id:&quot;+introducer_id+&quot;,random_makename:&quot;+makename);
+log.info(num+&quot;result:random_password:&quot;+username+&quot;,random_password:&quot;+password+&quot;,random_makename:&quot;+makename);
+vars.put(&quot;random_username&quot;,username);
+vars.put(&quot;random_password&quot;,password);
+//vars.put(&quot;random_introducer_id&quot;,introducer_id);
+vars.put(&quot;random_makename&quot;,makename);
+
+log.info(&quot;--------End_Initialize global data-----------&quot;);
+
+
+</stringProp>
+          <boolProp name="BeanShellSampler.resetInterpreter">false</boolProp>
+        </BeanShellSampler>
+        <hashTree/>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP_Cookie_Manager" enabled="true">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP_Header_Manager" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Accept-Language</stringProp>
+              <stringProp name="Header.value">en</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">content-type</stringProp>
+              <stringProp name="Header.value">application/json</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">User-Agent</stringProp>
+              <stringProp name="Header.value">Performance Testing(Jmeter 5.6.2)</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree/>
+        <CacheManager guiclass="CacheManagerGui" testclass="CacheManager" testname="HTTP_Cache_Manager" enabled="true">
+          <boolProp name="clearEachIteration">false</boolProp>
+          <boolProp name="useExpires">true</boolProp>
+          <boolProp name="CacheManager.controlledByThread">false</boolProp>
+        </CacheManager>
+        <hashTree/>
+        <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP_Request_Management" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${__P(load.domain,perf.internal.trq.cloud)}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(load.port,)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">${__P(load.protocol,https)}</stringProp>
+          <stringProp name="TestPlan.comments">i.e. Domain </stringProp>
+          <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout">60000</stringProp>
+          <stringProp name="HTTPSampler.response_timeout">60000</stringProp>
+        </ConfigTestElement>
+        <hashTree/>
+        <TransactionController guiclass="TransactionControllerGui" testclass="TransactionController" testname="Transaction_Management" enabled="true">
+          <boolProp name="TransactionController.includeTimers">false</boolProp>
+          <boolProp name="TransactionController.parent">false</boolProp>
+        </TransactionController>
+        <hashTree>
+          <IncludeController guiclass="IncludeControllerGui" testclass="IncludeController" testname="Login_Transaction" enabled="true">
+            <stringProp name="IncludeController.includepath">Login.jmx</stringProp>
+          </IncludeController>
+          <hashTree/>
+          <IncludeController guiclass="IncludeControllerGui" testclass="IncludeController" testname="StartupPage_Transaction" enabled="true">
+            <stringProp name="IncludeController.includepath">StartupPage.jmx</stringProp>
+          </IncludeController>
+          <hashTree/>
+          <IncludeController guiclass="IncludeControllerGui" testclass="IncludeController" testname="Create_Quotation_Transaction" enabled="true">
+            <stringProp name="IncludeController.includepath">Create_Quotation.jmx</stringProp>
+          </IncludeController>
+          <hashTree/>
+          <IncludeController guiclass="IncludeControllerGui" testclass="IncludeController" testname="Search_Quotation_Transaction" enabled="true">
+            <stringProp name="IncludeController.includepath">Search_Quotation.jmx</stringProp>
+          </IncludeController>
+          <hashTree/>
+          <IncludeController guiclass="IncludeControllerGui" testclass="IncludeController" testname="Logout_Transaction" enabled="true">
+            <stringProp name="IncludeController.includepath">Logout.jmx</stringProp>
+          </IncludeController>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Aggregate_Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <url>true</url>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename">./report/${__time(yyyyMMdd_HHmm)}/result_aggregated.jtl</stringProp>
+          <boolProp name="useGroupName">true</boolProp>
+        </ResultCollector>
+        <hashTree/>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="Results Tree" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>true</responseData>
+              <samplerData>true</samplerData>
+              <xml>true</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>true</responseHeaders>
+              <requestHeaders>true</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <url>true</url>
+              <threadCounts>true</threadCounts>
+              <sampleCount>true</sampleCount>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename">./report/${__time(yyyyMMdd_HHmm)}/result_tree.csv</stringProp>
+          <stringProp name="TestPlan.comments">${__property(project_path)}/report/${__time(YMD)} /result_tree_${__time(HMS)}.jtl</stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Data_Users" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">./data/users.csv</stringProp>
+          <boolProp name="ignoreFirstLine">true</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">random_username,random_password,random_makename </stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Data_Organization" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">./data/organization.csv</stringProp>
+          <boolProp name="ignoreFirstLine">true</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">organization_segment_type,organization_code,organization_nummer</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Data_Customer" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">./data/custmers.csv</stringProp>
+          <boolProp name="ignoreFirstLine">true</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">custmers_segment_type,custmers_code,custmers_nummer</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Data_Load_Products" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">./data/loan.csv</stringProp>
+          <boolProp name="ignoreFirstLine">true</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">Loan_Products_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Data_IndustryAssetData_From_Defined" enabled="false">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">./data/asset.csv</stringProp>
+          <boolProp name="ignoreFirstLine">true</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">makename,asset_uuid,asset_modelcode</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+      </hashTree>
+      <ConfigTestElement guiclass="PropertyControlGui" testclass="ConfigTestElement" testname="Property_Display" enabled="true"/>
+      <hashTree/>
+      <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="Project_Variables" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="project_path" elementType="Argument">
+            <stringProp name="Argument.name">project_path</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+            <stringProp name="Argument.value">${__BeanShell(import org.apache.jmeter.services.FileServer;FileServer.getFileServer().getBaseDir();)}</stringProp>
+            <stringProp name="Argument.desc">Get the current directory of the project</stringProp>
+          </elementProp>
+          <elementProp name="industry_asset_data_path" elementType="Argument">
+            <stringProp name="Argument.name">industry_asset_data_path</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+            <stringProp name="Argument.value">/data/Data.csv</stringProp>
+            <stringProp name="Argument.desc">Relative paths under test scripts for beanshell to read</stringProp>
+          </elementProp>
+          <elementProp name="test_data" elementType="Argument">
+            <stringProp name="Argument.name">test_data</stringProp>
+            <stringProp name="Argument.value">/data/test_data.csv</stringProp>
+            <stringProp name="Argument.desc">Comprehensive data resources</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </Arguments>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

@@ -1,0 +1,57 @@
+@Library('PipelineUtils')_
+import com.XXX.Constants
+pipeline {
+    agent {
+        label "agent&&docker"
+    }
+
+    environment {
+        CONTAINER_NAME="${CONTAINER_NAME}"
+        RESOURCE_GROUP="${RESOURCE_GROUP}"
+        DOCKER_REGISTRY="${DOCKER_REGISTRY}"
+        DOCKER_USER_NAME="${DOCKER_USER_NAME}"
+        DOCKER_USER_PASSWORD="${DOCKER_USER_PASSWORD}"
+        NETWORK_PROFILE_ID="${NETWORK_PROFILE_ID}"
+        CPU_RESOURCE="${CPU_RESOURCE}"
+        MEMORY_IN_GB_RESOURCE="${MEMORY_IN_GB_RESOURCE}"
+        WORKSPACE = "./performance/jmeter-agent/"
+        DOCKER_REPOSITORY = "${DOCKER_REGISTRY}/performance/jmeter-agent"
+    }
+
+    stages {
+        stage("Deploy to Azure") {
+            steps {
+                dir (WORKSPACE){
+                    withCredentials([azureServicePrincipal('AcrServiceUser')]) {
+                        sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                    }
+                    script {
+                        try{
+                            if (VERSION.trim().equalsIgnoreCase("latest")){
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:latest"
+                            } else {
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:${VERSION}"
+                            }
+                            sh "envsubst < jenkins/jmeter-master-template.yaml > jenkins/jmeter-master.yaml"
+                            def SHARE_FOLDER_EXISTS = sh (script:"az storage share-rm exists --name ${AZURE_FILE_SHARE_NAME} --resource-group ${RESOURCE_GROUP} --storage-account ${AZURE_FILE_STORAGE_ACCOUNT_NAME} --query exists --output tsv", returnStdout: true).trim()
+                            echo "SHARE_FOLDER_EXISTS exists : ${SHARE_FOLDER_EXISTS}"
+                            if (SHARE_FOLDER_EXISTS=="false"){
+                                sh "az storage share-rm create --name ${AZURE_FILE_SHARE_NAME} --resource-group ${RESOURCE_GROUP} --storage-account ${AZURE_FILE_STORAGE_ACCOUNT_NAME}"
+                            }
+                            sh "az container delete -g ${RESOURCE_GROUP} -n ${CONTAINER_NAME} --yes"
+                        } finally{
+                            sh "az container create -g ${RESOURCE_GROUP} -f jenkins/jmeter-master.yaml"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            dir (WORKSPACE){
+                sh "rm -f jmeter-master.yaml"
+            }
+        }
+    }
+}

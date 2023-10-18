@@ -1,0 +1,48 @@
+@Library('PipelineUtils')_
+import com.XXX.Constants
+pipeline {
+    agent {
+        label "agent&&docker"
+    }
+
+    environment {
+        DOCKER_REGISTRY = "torqueits"
+        DOCKER_REPOSITORY = "${DOCKER_REGISTRY}.azurecr.io/performance/pos/jmeter-agent"
+        WORKSPACE = "./performance/jmeter-agent/"
+    }
+    
+    stages {
+        stage('Build jmeter-agent docker image & push docker image to Azure') {
+            steps {
+                dir (WORKSPACE){
+                    script {
+                        def date = new Date()
+                        def formattedDate = date.format("yyyyMMdd")
+                        VERSION = "v${formattedDate}"
+                        DOCKER_IMAGE_TAG = "${DOCKER_REPOSITORY}:${VERSION}-b${BUILD_NUMBER}"
+                        DOCKER_IMAGE_TAG_LATEST = "${DOCKER_REPOSITORY}:latest"
+                        withCredentials([azureServicePrincipal('AcrServiceUser')]) {
+                            sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                            sh 'docker login ${DOCKER_REGISTRY}.azurecr.io -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET'
+                        }
+                        echo "-- Build Docker image"
+                        // make sure the local docker cache has the latest version of base image
+                        sh "docker build -t ${DOCKER_IMAGE_TAG} --build-arg VERSION=${VERSION} --build-arg BUILD_NUMBER=${BUILD_NUMBER} ."
+                        sh "docker tag ${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_TAG_LATEST}"
+                        echo "-- Push Docker image"
+                        sh "docker push ${DOCKER_IMAGE_TAG}"
+                        sh "docker push ${DOCKER_IMAGE_TAG_LATEST}"
+                    }
+                }
+            }
+        }
+    }
+    post{
+        always{
+            dir (WORKSPACE){
+                // sh "rm -f pos-*.war"
+                // sh "ls -al"
+            }
+        }
+    }
+}

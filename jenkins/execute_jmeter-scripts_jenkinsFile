@@ -1,0 +1,112 @@
+@Library('PipelineUtils')_
+import com.XXX.Constants
+pipeline {
+    agent {
+        label "agent&&docker&&2GB-RAM"
+    }
+
+    environment {
+        CONTAINER_NAME="${CONTAINER_NAME}"
+        RESOURCE_GROUP="${RESOURCE_GROUP}"
+        DOCKER_REGISTRY="${DOCKER_REGISTRY}"
+        LOAD_DOMAIN="${LOAD_DOMAIN}"
+        LOAD_THREAD_NUM="${LOAD_THREAD_NUM}"
+        LOAD_TRAMP_UP="${LOAD_TRAMP_UP}"
+        LOAD_DURATION="${LOAD_DURATION}"
+        DOCKER_USER_NAME="${DOCKER_USER_NAME}"
+        DOCKER_USER_PASSWORD="${DOCKER_USER_PASSWORD}"
+        NETWORK_PROFILE_ID="${NETWORK_PROFILE_ID}"
+        CPU_RESOURCE="${CPU_RESOURCE}"
+        MEMORY_IN_GB_RESOURCE="${MEMORY_IN_GB_RESOURCE}"
+        WORKSPACE = "./performance/jmeter-agent/"
+        DOCKER_REPOSITORY = "${DOCKER_REGISTRY}/performance/jmeter-agent"
+        StartDatetime = new Date(currentBuild.startTimeInMillis).format("yyyyMMddHHmm")
+        Waiting_SECONDS = 300
+        EndDatetime = calculateEndDatetime(StartDatetime, LOAD_DURATION.toInteger(), Waiting_SECONDS)
+    }
+
+    stages {
+        stage("Deploy to Azure") {
+            steps {
+                dir (WORKSPACE){
+                    withCredentials([azureServicePrincipal('AcrServiceUser')]) {
+                        sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                    }
+                    script {
+                        try{
+                            if (VERSION.trim().equalsIgnoreCase("latest")){
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:latest"
+                            } else {
+                                env.DOCKER_IMAGE = "${DOCKER_REPOSITORY}:${VERSION}"
+                            }
+                            sh "envsubst < jenkins/jmeter-master-execute.yaml > jenkins/jmeter-execute.yaml"
+                            sh "az container delete -g ${RESOURCE_GROUP} -n ${CONTAINER_NAME} --yes"
+                        } finally{
+                            sh "az container create -g ${RESOURCE_GROUP} -f jenkins/jmeter-execute.yaml"
+                        }
+                    }
+                }
+            }
+        }
+        stage("Wait for JMeter execution to complete") {
+            steps {
+                dir (WORKSPACE){
+                    script {
+                        def loadDuration = LOAD_DURATION.toInteger()
+                        def waitTimeInSeconds = loadDuration + Waiting_SECONDS.toInteger()
+                        echo "Waiting for Jmeter execution to complete. ${waitTimeInSeconds} seconds..."
+                        sleep time: waitTimeInSeconds, unit: 'SECONDS'
+                        echo "Done waiting. Continue with the next steps."
+                    }
+                }
+            }
+        }
+        stage("Executive Jenkins Job: Intergrating_Report") {
+            steps {
+                dir (WORKSPACE){
+                    script {
+                        def jobParameters = [
+                            [$class: 'StringParameterValue', name: 'StartDatetime', value: convertUTCToNZ(StartDatetime)],
+                            [$class: 'StringParameterValue', name: 'EndDatetime', value: convertUTCToNZ(EndDatetime)]
+                        ]
+                        def buildStartTime = currentBuild.startTimeInMillis
+                        def currentDate = new Date(buildStartTime)
+                        def dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                        def formattedDate = dateFormat.format(currentDate)
+                        echo "Current date and time: ${formattedDate}"
+                        echo "integrating results from UTC: ${StartDatetime} TO UTC: ${EndDatetime}"
+                        build job: 'Intergrating_Report', parameters: jobParameters
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            dir (WORKSPACE){
+                sh "rm -f jenkins/jmeter-execute.yaml"
+            }
+        }
+        success{
+              script {
+                  currentBuild.description = "<a href='https://XXX.azurewebsites.net' target='_blank'>View Integrated Report</a>"
+              }
+        }
+    }
+}
+
+def calculateEndDatetime(startDatetime, loadDuration, extraSeconds) {
+    def sdf = new java.text.SimpleDateFormat("yyyyMMddHHmm")
+    def startDate = sdf.parse(startDatetime)
+    def endDate = new Date(startDate.time + (loadDuration * 1000) + (extraSeconds * 1000))
+    return sdf.format(endDate)
+}
+def convertUTCToNZ(utcTime) {
+    def utcFormat = new java.text.SimpleDateFormat("yyyyMMddHHmm")
+    utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
+    def date = utcFormat.parse(utcTime)
+    def nzFormat = new java.text.SimpleDateFormat("yyyyMMddHHmm")
+    nzFormat.setTimeZone(TimeZone.getTimeZone("Pacific/Auckland"))
+    def nzTime = nzFormat.format(date)
+    return nzTime
+}

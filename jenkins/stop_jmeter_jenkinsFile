@@ -1,0 +1,33 @@
+@Library('PipelineUtils')_
+import com.torqueits.Constants
+pipeline {
+    agent {
+        label "agent&&docker&&2GB-RAM"
+    }
+
+    environment {
+        CONTAINER_NAME="${CONTAINER_NAME}"
+        WORKSPACE = "./performance/jmeter-agent/"
+    }
+
+    stages {
+        stage("Deploy to Azure") {
+            steps {
+                dir (WORKSPACE){
+                    withCredentials([azureServicePrincipal('AcrServiceUser')]) {
+                        sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+                    }
+                    script {
+                        def containerList = sh(script: "az container list -g ${RESOURCE_GROUP} --query '[].name' --output tsv", returnStdout: true).trim().split('\n')
+                        for (def containerName in containerList) {
+                            if (containerName.startsWith(CONTAINER_NAME)) {
+                                sh "az container delete -g ${RESOURCE_GROUP} --name ${containerName} --yes"
+                                echo "Remove container : ${containerName}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

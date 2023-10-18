@@ -1,0 +1,55 @@
+additional_properties: {}
+apiVersion: '2021-03-01'
+extended_location: null
+location: southeastasia
+name: $CONTAINER_NAME
+properties:
+  containers:
+    - name: $CONTAINER_NAME
+      properties:
+        environmentVariables:
+          - name: SERVER_PORT
+            value: $SERVER_PORT
+          - name: SERVER_RMI_LOCALPORT
+            value: $SERVER_RMI_LOCALPORT
+          - name: APPLICATION_INSIGHTS_IKEY
+            value: $APPLICATION_INSIGHTS_IKEY
+          - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+            value: $APPLICATIONINSIGHTS_CONNECTION_STRING
+        image: $DOCKER_IMAGE
+        command: [ "bash", "-c", "/docker-entrypoint.sh master" ]
+        ports:
+          - port: $SERVER_PORT
+            protocol: TCP
+          - port: $SERVER_RMI_LOCALPORT
+            protocol: TCP
+        resources:
+          requests:
+            cpu: $CPU_RESOURCE
+            memoryInGB: $MEMORY_IN_GB_RESOURCE
+        volumeMounts:
+          - mountPath: /jmeter/apache-jmeter-5.6.2/report/
+            name: azurefile
+  imageRegistryCredentials:
+    - server: $DOCKER_REGISTRY
+      username: $DOCKER_USER_NAME
+      password: $DOCKER_USER_PASSWORD
+  ipAddress:
+    ports:
+      - port: $SERVER_RMI_LOCALPORT
+        protocol: TCP
+      - port: $SERVER_PORT
+        protocol: TCP
+    type: Private
+  networkProfile:
+    id: $NETWORK_PROFILE_ID
+  osType: Linux
+  restartPolicy: OnFailure
+  volumes:
+    - azureFile:
+        shareName: $AZURE_FILE_SHARE_NAME
+        storageAccountName: $AZURE_FILE_STORAGE_ACCOUNT_NAME
+        storageAccountKey: $AZURE_FILE_STORAGE_ACCOUNT_KEY
+      name: azurefile
+tags: {}
+type: Microsoft.ContainerInstance/containerGroups
